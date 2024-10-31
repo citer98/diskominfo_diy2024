@@ -1,52 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const AddUser = () => {
-  const [user, setUser] = useState({
+const AddUser  = () => {
+  const [user, setUser ] = useState({
     name: '',
     nip: '',
     email: '',
     phone: '',
     password: '',
-    department: ''
+    department: '',
+    role: ''
   });
   const [departments, setDepartments] = useState([]); // State to hold department list
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch departments from localStorage when the component mounts
-    const storedDepartments = JSON.parse(localStorage.getItem('departments')) || [];
-    setDepartments(storedDepartments);
+    const fetchDepartments = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/api/departments', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setDepartments(response.data);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+      }
+    };
+
+    fetchDepartments();
   }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setUser((prevUser) => ({
-      ...prevUser,
+    setUser ((prevUser ) => ({
+      ...prevUser ,
       [name]: value
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newUser = { ...user };
     
-    // Get existing users from localStorage
-    const existingUsers = JSON.parse(localStorage.getItem('visitors')) || [];
-    
-    // Add the new user to the existing array
-    existingUsers.push(newUser);
-    
-    // Update localStorage
-    localStorage.setItem('visitors', JSON.stringify(existingUsers));
-
-    // Navigate back to admin dashboard
-    navigate('/');
+    try {
+      const response = await axios.post('http://localhost:8080/api/users', user, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (response.status === 201) {
+        alert('User  added successfully');
+        navigate('/admin'); // Navigate back to admin dashboard
+      }
+    } catch (error) {
+      console.error('Error adding user:', error);
+      alert('Failed to add user: ' + error.message);
+    }
   };
 
   return (
     <div className="container my-4">
-      <div className="p-3 border rounded shadow" style={{ maxWidth: '700px', margin: '0 auto' }}> {/* Set a max width and center */}
+      <div className="p-3 border rounded shadow" style={{ maxWidth: '700px', margin: '0 auto' }}>
         <form onSubmit={handleSubmit}>
           <p className="fw-bold text-center">TAMBAH USER</p>
 
@@ -129,6 +145,22 @@ const AddUser = () => {
               {departments.map((dept, index) => (
                 <option key={index} value={dept.name}>{dept.name}</option>
               ))}
+            </select>
+          </div>
+
+          {/* Role Dropdown */}
+          <div className="mb-2">
+            <label className="form-label">Role*</label>
+            <select
+              className="form-select border border-dark"
+              name="role"
+              value={user.role}
+              onChange={handleInputChange}
+              required
+            >
+              <option value="">Pilih Role</option>
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
             </select>
           </div>
 

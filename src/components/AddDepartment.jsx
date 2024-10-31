@@ -1,6 +1,6 @@
-// src/components/AddDepartment.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios'; // Pastikan axios sudah diinstal
 
 const AddDepartment = () => {
   const [departmentName, setDepartmentName] = useState('');
@@ -9,23 +9,42 @@ const AddDepartment = () => {
   const [status, setStatus] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Create new department object
-    const newDepartment = { name: departmentName, address, phone, status };
-
-    // Get existing departments from localStorage
-    const existingDepartments = JSON.parse(localStorage.getItem('departments')) || [];
-
-    // Add the new department to the existing array
-    existingDepartments.push(newDepartment);
-
-    // Update localStorage with the new list of departments
-    localStorage.setItem('departments', JSON.stringify(existingDepartments));
-
-    // Navigate back to admin dashboard
-    navigate('/');
+    try {
+      const response = await axios.post('http://localhost:8080/api/departments', {
+        name: departmentName,
+        address,
+        phone,
+        status
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+  
+      if (response.status === 201) {
+        alert('Department added successfully');
+        navigate('/');
+      }
+    } 
+    catch (error) {
+      if (error.response) {
+        // Permintaan dibuat dan server merespons dengan status yang tidak dalam rentang 2xx
+        console.error('Error adding department:', error.response.data);
+        alert('Failed to add department: ' + (error.response.data.error || error.response.data.message));
+      } else if (error.request) {
+        // Permintaan dibuat tetapi tidak ada respons yang diterima
+        console.error('No response received:', error.request);
+        alert('Failed to add department: No response from server');
+      } else {
+        // Terjadi kesalahan saat mengatur permintaan
+        console.error('Error:', error.message);
+        alert('Failed to add department: ' + error.message);
+      }
+    }
   };
 
   return (

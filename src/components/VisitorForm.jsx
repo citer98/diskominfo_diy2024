@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import axios from 'axios';
 
 function VisitorForm() {
+  const navigate = useNavigate();
+  const [departments, setDepartments] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     gender: '',
@@ -11,44 +13,84 @@ function VisitorForm() {
     institution: '',
     phone: '',
     department: '',
-    visitDate: ''
+    visitDate: new Date().toISOString().split('T')[0]
   });
 
-  const navigate = useNavigate();
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/departments', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setDepartments(response.data);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    if (name === 'visitDate') {
+      try {
+        // Ensure the date is in the correct format (YYYY-MM-DD)
+        const date = new Date(value + 'T00:00:00Z');
+        if (!isNaN(date.getTime())) {
+          setFormData({
+            ...formData,
+            [name]: date.toISOString().split('T')[0]
+          });
+        }
+      } catch (error) {
+        console.error('Invalid date:', error);
+      }
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    const requiredFields = ['name', 'gender', 'purpose', 'address', 'institution', 'phone', 'department', 'visitDate'];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+    
+    if (missingFields.length > 0) {
+      alert(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      return;
+    }
+
     try {
-      // Mendapatkan token dari localStorage
+      // Create a copy of formData with the properly formatted date
+      const submitData = {
+        ...formData,
+        visitDate: new Date(formData.visitDate + 'T00:00:00Z').toISOString()
+      };
+
       const token = localStorage.getItem('token');
+      console.log('Sending data:', submitData);
       
-      const response = await fetch('http://localhost:8080/api/visitors', {
-        method: 'POST',
+      const response = await axios.post('http://localhost:8080/api/visitors', submitData, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '' // Gunakan token jika ada
-        },
-        body: JSON.stringify(formData)
+          'Authorization': `Bearer ${token}`
+        }
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("Response data:", data);
-      alert('Data submitted successfully');
-      navigate('/');
+
+      console.log('Response:', response.data);
+      alert('Data berhasil disimpan!');
+      navigate('/guest');
     } catch (error) {
       console.error('Error submitting data:', error);
-      alert('Error submitting data: ' + error.message);
+      alert('Error submitting data: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -56,108 +98,117 @@ function VisitorForm() {
     <div className="container my-4">
       <div className="p-3 border rounded shadow" style={{ maxWidth: '700px', margin: '0 auto' }}>
         <form onSubmit={handleSubmit}>
-          <p className="fw-bold text-center">FORMULIR TAMU</p>
+          <p className="fw-bold text-center">FORM TAMU</p>
 
           <div className="mb-2">
-            <label htmlFor="name" className="form-label">Nama*</label>
+            <label className="form-label">Nama*</label>
             <input
               type="text"
+              className="form-control border border-dark"
               name="name"
-              className="form-control border border-dark"
-              placeholder="Nama"
+              value={formData.name}
               onChange={handleChange}
               required
             />
           </div>
 
           <div className="mb-2">
-            <label htmlFor="institution" className="form-label">Instansi*</label>
-            <input
-              type="text"
-              name="institution"
-              className="form-control border border-dark"
-              placeholder="Instansi"
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="mb-2">
-            <label htmlFor="phone" className="form-label">No HP*</label>
-            <input
-              type="text"
-              name="phone"
-              className="form-control border border-dark"
-              placeholder="No HP"
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="mb-2">
-            <label htmlFor="address" className="form-label">Alamat*</label>
-            <textarea
-              name="address"
-              className="form-control border border-dark"
-              placeholder="Alamat"
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="mb-2">
-            <label htmlFor="gender" className="form-label">Jenis Kelamin*</label>
+            <label className="form-label">Jenis Kelamin*</label>
             <select
               name="gender"
               className="form-select border border-dark"
+              value={formData.gender}
               onChange={handleChange}
               required
             >
               <option value="">Pilih Jenis Kelamin</option>
-              <option value="Laki-laki">Laki-laki</option>
+              <option value="Laki-laki">Laki-Laki</option>
               <option value="Perempuan">Perempuan</option>
             </select>
           </div>
 
           <div className="mb-2">
-            <label htmlFor="department" className="form-label">Bidang*</label>
+            <label className="form-label">Keperl ukan*</label>
+            <input
+              type="text"
+              className="form-control border border-dark"
+              name="purpose"
+              value={formData.purpose}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="mb-2">
+            <label className="form-label">Alamat*</label>
+            <input
+              type="text"
+              className="form-control border border-dark"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="mb-2">
+            <label className="form-label">Institusi*</label>
+            <input
+              type="text"
+              className="form-control border border-dark"
+              name="institution"
+              value={formData.institution}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="mb-2">
+            <label className="form-label">No. Telepon*</label>
+            <input
+              type="tel"
+              className="form-control border border-dark"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="mb-2">
+            <label className="form-label">Departemen*</label>
             <select
               name="department"
               className="form-select border border-dark"
+              value={formData.department}
               onChange={handleChange}
               required
             >
               <option value="">Pilih Bidang</option>
-              <option value="Bidang APTIKA">Bidang APTIKA</option>
-              <option value="Bidang lainnya">Bidang lainnya</option>
+              {departments.map((department) => (
+                <option key={department.id} value={department.name}>
+                  {department.name}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="mb-2">
-            <label htmlFor="visitDate" className="form-label">Tanggal Kunjungan*</label>
+            <label className="form-label">Tanggal Kunjungan*</label>
             <input
               type="date"
+              className="form-control border border-dark"
               name="visitDate"
-              className="form-control border border-dark"
+              value={formData.visitDate}
               onChange={handleChange}
               required
             />
           </div>
 
-          <div className="mb-2">
-            <label htmlFor="purpose" className="form-label">Keperluan*</label>
-            <textarea
-              name="purpose"
-              className="form-control border border-dark"
-              placeholder="Keperluan"
-              onChange={handleChange}
-              required
-            />
-          </div>
+          <button type="submit" className="btn btn-danger w-100">
+          Simpan
+        </button>
 
-          <button type="submit" className="btn btn-primary w-100">
-            Submit
-          </button>
         </form>
       </div>
     </div>

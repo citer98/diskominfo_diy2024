@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 function VisitorData() {
   const [visitors, setVisitors] = useState([]);
@@ -8,51 +9,78 @@ function VisitorData() {
   const [sortOrder, setSortOrder] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [visitorsPerPage, setVisitorsPerPage] = useState(5);
+  const [loading, setLoading] = useState(true);
+  const [departments, setDepartments] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchVisitors = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/api/visitors', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        const visitorsData = response.data;
+        setVisitors(visitorsData);
+      } catch (error) {
+        console.error('Error fetching visitors:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchDepartments = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/api/departments', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        setDepartments(response.data);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+      }
+    };
+
     fetchVisitors();
+    fetchDepartments();
   }, []);
-  
-  const fetchVisitors = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/visitors', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      console.log("Received visitors data:", data);
-      setVisitors(data);
-    } catch (error) {
-      console.error('Error fetching visitors:', error);
-    }
-  };
 
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-  };
-
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('id-ID', options);
+    setCurrentPage(1);
   };
 
   const handleDepartmentFilter = (e) => {
     setSelectedDepartment(e.target.value);
+    setCurrentPage(1);
   };
 
-  const handleSort = (field) => {
+  const handleSort = () => {
     const sortedVisitors = [...visitors].sort((a, b) => {
-      if (field === 'name') {
-        return sortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-      } else if (field === 'visitDate') {
-        return sortOrder === 'asc' ? new Date(a.visitDate) - new Date(b.visitDate) : new Date(b.visitDate) - new Date(a.visitDate);
+      if (sortOrder === 'asc') {
+        return a.name.localeCompare(b.name);
+      } else {
+        return b.name.localeCompare(a.name);
       }
     });
     setVisitors(sortedVisitors);
     setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? '-' : new Intl.DateTimeFormat('id-ID', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
   };
 
   const filteredVisitors = visitors.filter((visitor) => {
@@ -110,8 +138,14 @@ function VisitorData() {
     setCurrentPage(1);
   };
 
-  return ( <div className="container mt-3">
-      <h3>Data Tamu</h3>
+  return (
+    <div className="container mt-3">
+      {/* Positioned text at the top-left corner */}
+      <h5 className="position-absolute" style={{ top: 0, left: 0, margin: '10px' }}>
+        Data Tamu / Edit Tamu
+      </h5>
+
+      <h5>Data Tamu</h5>
       <div className="row mb-3">
         <div className="col-12 col-md-6 mb-2 mb-md-0">
           <input
@@ -123,11 +157,21 @@ function VisitorData() {
           />
         </div>
         <div className="col-6 col-md-3 mb-2 mb-md-0">
-          <select className="form-select" onChange={handleDepartmentFilter}>
-            <option value="">Semua Bidang</option>
-            <option value="Bidang IKP">Bidang IKP</option>
-            <option value="Bidang HUMAS">Bidang HUMAS</option>
-            <option value="Bidang APTIKA">Bidang APTIKA</option>
+          <select
+            name="department"
+            className="form-select border border-dark"
+            value={selectedDepartment}
+            onChange={handleDepartmentFilter}
+            required
+          >
+            <option value="">Pilih Bidang</option>
+            {departments.map((dept) => (
+              dept.status === 'Active' && (
+                <option key={dept.id} value={dept.name}>
+                  {dept.name}
+                </option>
+              )
+            ))}
           </select>
         </div>
         <div className="col-6 col-md-3 mb-2 mb-md-0 d-flex">
@@ -164,12 +208,7 @@ function VisitorData() {
                   <th>Jenis Kelamin</th>
                   <th>Bidang</th>
                   <th>Keperluan</th>
-                  <th>
-                    Tanggal Kunjungan
-                    <button className="btn btn-sm" onClick={() => handleSort('visitDate')}>
-                      {sortOrder === 'asc' ? '↑' : '↓'}
-                    </button>
-                  </th>
+                  <th>Tanggal Kunjungan</th>
                   <th>Aksi</th>
                 </tr>
               </thead>
@@ -211,7 +250,7 @@ function VisitorData() {
           <li className="page-item">
             <span className="page-link">{currentPage}</span>
           </li>
-          <li className={`page-item ${currentPage >= Math.ceil(filteredVisitors.length / visitorsPerPage) ? 'disabled' : ''}`}>
+          <li className={`page-item ${currentPage === Math.ceil(filteredVisitors.length / visitorsPerPage) ? 'disabled' : ''}`}>
             <button className="page-link" onClick={handleNextPage}>Next</button>
           </li>
         </ul>

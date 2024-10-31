@@ -1,28 +1,108 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { FaUserPlus, FaClipboardList } from 'react-icons/fa';
 
 const Admin = () => {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([
-    { id: '4680543456', name: 'ARIJAL', email: 'arijal@qsgmail.com', phone: '09217639184712941', department: 'APTIKA', createdAt: '2 March 2021, 13:45 PM' },
-    { id: '4545869856', name: 'RIFAL', email: 'rifal@qsgmail.com', phone: '085645789612', department: 'APTIKA', createdAt: '5 March 2021, 10:15 AM' },
-    { id: '#123456789', name: 'PAI', email: 'pai@qsgmail.com', phone: '081234567891', department: 'APTIKA', createdAt: '12 March 2021, 09:30 AM' },
-    { id: '#123456789', name: 'FAHREZA', email: 'fahreza@qsgmail.com', phone: '081234567891', department: 'INFOKOM', createdAt: '20 March 2021, 11:45 AM' },
-  ]);
-
+  const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [showDepartmentsTable, setShowDepartmentsTable] = useState(false);
-  const [isHovered, setIsHovered] = useState(false); // State for hover animation
+  const [showUsersTable, setShowUsersTable] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalDepartments: 0,
+  });
 
   useEffect(() => {
-    const storedDepartments = JSON.parse(localStorage.getItem('departments')) || [];
-    setDepartments(storedDepartments);
+    fetchDepartments();
+    fetchUsers();
+    fetchStats();
   }, []);
 
-  const handleDeleteUser = (id) => {
+  const fetchDepartments = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/departments', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setDepartments(response.data);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/users', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/stats', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setStats(response.data);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  const handleDeleteUser = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) {
-      setUsers(users.filter(user => user.id !== id));
+      try {
+        const response = await axios.delete(`http://localhost:8080/api/users/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.status === 200) {
+          setUsers(users.filter(user => user.id !== id));
+          fetchStats(); // Refresh stats after deletion
+          alert('User deleted successfully');
+        } else {
+          throw new Error('Failed to delete user');
+        }
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Failed to delete user: ' + error.message);
+      }
+    }
+  };
+
+  const handleDeleteDepartment = async (id) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus bidang ini?')) {
+      try {
+        const response = await axios.delete(`http://localhost:8080/api/departments/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.status === 200) {
+          setDepartments(departments.filter(department => department.id !== id));
+          fetchStats(); // Refresh stats after deletion
+          alert('Department deleted successfully');
+        } else {
+          throw new Error('Failed to delete department');
+        }
+      } catch (error) {
+        console.error('Error deleting department:', error);
+        alert('Failed to delete department: ' + error.message);
+      }
     }
   };
 
@@ -30,18 +110,13 @@ const Admin = () => {
     setShowDepartmentsTable(!showDepartmentsTable);
   };
 
-  const handleDeleteDepartment = (index) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus bidang ini?')) {
-      const updatedDepartments = departments.filter((_, i) => i !== index);
-      setDepartments(updatedDepartments);
-      localStorage.setItem('departments', JSON.stringify(updatedDepartments));
-    }
+  const handleShowUsers = () => {
+    setShowUsersTable(!showUsersTable);
   };
 
   return (
     <div className="container mt-4">
-      <h1 className="text-center mb-4">Admin Dashboard</h1>
-
+      <h4>Admin Dashboard</h4>
       <div className="row mb-4">
         <div className="col-md-3">
           <div
@@ -49,12 +124,12 @@ const Admin = () => {
             style={{
               backgroundColor: '#F8EDED',
               cursor: 'pointer',
-              transform: isHovered ? 'scale(1.1)' : 'scale(1)', // Apply scaling effect
-              transition: 'transform 0.2s ease-in-out' // Smooth transition
+              transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+              transition: 'transform 0.2s ease-in-out'
             }}
             onClick={handleShowDepartments}
-            onMouseEnter={() => setIsHovered(true)} // Set hover state true
-            onMouseLeave={() => setIsHovered(false)} // Reset hover state
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           >
             <div className="card-body">
               <h3>Jumlah Bidang</h3>
@@ -74,24 +149,79 @@ const Admin = () => {
 
         <div className="col-md-3">
           <button className="btn btn-danger w-100 mb-3" onClick={() => navigate('/add-user')}>
-            <FaUserPlus /> Tambah Admin
+            <FaUserPlus /> Tambah User
           </button>
         </div>
-        <div className="col-md-3">
+        <div className="col -md-3">
           <button className="btn btn-danger w-100 mb-3" onClick={() => navigate('/add-department')}>
             <FaClipboardList /> Tambah Bidang
           </button>
         </div>
       </div>
 
-      {showDepartmentsTable && (
+      {/* Tampilkan tabel pengguna */}
+      {showUsersTable && (
         <div className="card shadow-sm mb-4">
           <div className="card-body">
-            <h2 className="text-center">Data Bidang</h2>
+            <h2 className="text-center">Data Pengguna</h2>
             <div className="table-responsive">
               <table className="table table-bordered table-hover">
                 <thead className="table-light">
-                  <tr style={{ backgroundColor: '#9F2C2C', color: 'white' }}>
+                  <tr>
+                    <th>No</th>
+                    <th>Nama</th>
+                    <th>NIP</th>
+                    <th>Email</th>
+                    <th>No Telp</th>
+                    <th>Bidang</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user, index) => (
+                    <tr key={index}>
+                      <td>{index + 1}</td>
+                      <td>{user.name}</td>
+                      <td>{user.nip}</td>
+                      <td>{user.email}</td>
+                      <td>{user.phone}</td>
+                      <td>{user.department}</td>
+                      <td>
+                        <button
+                          className="btn btn-warning btn-sm me-2"
+                          onClick={() => navigate(`/edit-user/${user.id}`)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDeleteUser   (user.id)}
+                        >
+                          Hapus
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tampilkan tabel bidang */}
+      {showDepartmentsTable && (
+        // <div className="card shadow-sm mb-4">
+           <div className="card mb-4">
+        <div className="card-header">
+          <h5 className="card-title">Daftar Bidang</h5>
+        </div>
+          <div className="card-body">
+            {/* <h2 className="text-center">Data Bidang</h2> */}
+            <div className="table-responsive">
+              <table className="table table-bordered table-hover">
+                <thead className="table-light">
+                  <tr>
                     <th>No</th>
                     <th>Nama Bidang</th>
                     <th>Alamat</th>
@@ -110,13 +240,19 @@ const Admin = () => {
                       <td>{department.status}</td>
                       <td>
                         <button
+                          className="btn btn-warning btn-sm me-2"
+                          onClick={() => navigate(`/edit-department/${department.id}`)}
+                        >
+                          Edit
+                        </button>
+                        <button
                           className="btn btn-danger btn-sm"
-                          onClick={() => handleDeleteDepartment(index)}
+                          onClick={() => handleDeleteDepartment(department.id)}
                         >
                           Hapus
                         </button>
                       </td>
-                    </tr>
+                    </ tr>
                   ))}
                 </tbody>
               </table>
@@ -124,13 +260,17 @@ const Admin = () => {
           </div>
         </div>
       )}
-
-      <div className="card shadow-sm">
+{/* 
+      <div className="card shadow-sm"> */}
+      <div className="card">
+        <div className="card-header">
+          <h5 className="card-title">Daftar Pengguna</h5>
+        </div>
         <div className="card-body">
           <div className="table-responsive">
             <table className="table table-bordered table-hover">
               <thead className="table-light">
-                <tr style={{ backgroundColor: '#9F2C2C', color: 'white' }}>
+                <tr>
                   <th>No</th>
                   <th>Nama</th>
                   <th>Email</th>
@@ -157,10 +297,16 @@ const Admin = () => {
                         Edit
                       </button>
                       <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDeleteUser(user.id)}
+                        className="btn btn-danger btn-sm me-2"
+                        onClick={() => handleDeleteUser    (user.id)}
                       >
                         Hapus
+                      </button>
+                      <button
+                        className=" btn btn-info btn-sm"
+                        onClick={() => navigate(`/detail-user/${user.id}`)}
+                      >
+                        Detail
                       </button>
                     </td>
                   </tr>
@@ -173,11 +319,11 @@ const Admin = () => {
 
       <nav aria-label="Page navigation">
         <ul className="pagination justify-content-center mt-4">
-          <li className="page-item"><a className="page-link" href="#">Previous</a></li>
+          <li className="page-item"><a className="page-link" href="#">Previous </a></li>
           <li className="page-item active"><a className="page-link" href="#">1</a></li>
           <li className="page-item"><a className="page-link" href="#">2</a></li>
           <li className="page-item"><a className="page-link" href="#">3</a></li>
-          <li className="page-item"><a className="page-link" href="#">Next</a></li>
+          <li className="page-item"><a className="page-link" href="#">Next</a></li >
         </ul>
       </nav>
     </div>

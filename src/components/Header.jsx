@@ -52,7 +52,7 @@ function Header({ onLogout }) {
                   </Dropdown.Toggle>
 
                   <Dropdown.Menu align="end">
-                    <Dropdown.Item href="#">Profile</Dropdown.Item>
+                    <Dropdown.Item href="/profile">Profile</Dropdown.Item>
                     <Dropdown.Item onClick={handleShow}>Logout</Dropdown.Item>
                   </Dropdown.Menu>
                 </Dropdown>
